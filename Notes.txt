@@ -1,0 +1,79 @@
+reference site: https://www.epa.gov/pm-pollution/particulate-matter-pm-basics
+reference site: https://www.researchgate.net/figure/Air-quality-index-AQI-values-PM25-and-PM10-conc-color-codes-air-pollutant-level-of_tbl1_343404673
+data location: https://africaopendata.org/dataset/sensorsafrica-airquality-archive-victoria-island-lagos
+
+Got the data from openAfrica.
+Search for air-quality data in lagos
+Downloaded all the data from January - December 2018 for Victoria island
+
+Downloaded MongoDB compass
+Used the GUI to create the air-quality database, victoria island collection
+imported all the data into the Victoria-Island-Lagos-Collection
+
+Changed timestamps associated with the PM2.5 reading to Lagos time.
+The reason is because whenever timestamps are saved in mongoDB they are saved in "UTC" or universal coordinated timer.
+
+There are outliers in the PM2.5 values based on a boxplot that visualizes distribution
+Based on research a greach cutoff would be values less than or equal to 100
+
+Although we are trying to predict PM2.5 readings, we do not know at what interval we are trying to acconplish that
+so we resample the data and set the interval to produce the average PM2.5 reading every hour
+The next issue is to tackle missing values, since we can't have any hour whjere there is no mean PM2.5 reading
+Another issue is the strategy used to fill in these missing values. since it is time series data we can't use the mean because that would involve using data from the future which is not possible in reality.
+The most appropriate way would be to use a forward fill. this would invoilve carrying forward the PM2.5 reading before the missing data. that way no future data is used to fill missing data.
+
+Based on the plot there wre very high peaks and low valleys (100 or 0). There's nothing wrong with the plot but because there's so much up and down movement, it can be hard to see trends.
+to see trends, a great way is to do a rolling average/ rolling window average. 
+It basically plots the average of a set time window. Then doing this by moving forward in time till the entire time window is covered.
+For this project, a 168 time periods is used. this is the number of hours in a week.
+
+The question rises, how many lags do we need to have in our model for it to have good predictive power?
+The ACF and PACF plot are useful in these instances.
+As we move from left to right we are going further into the past and predictive power gets less and less.
+the y-axis gets larger from bottom to top. as we move up we have highly correlated and as we move down we have less correlated.
+anything inside the band, the correlation coefficient is so small that it is not statistically significant.
+Generally predictive power reduces as you go further back in time. however, there are peaks at the 10th hour and the 24th hour. this indicated that they'd be good lags as well.
+
+We want to remove ech and see which lags actually have strong predictive power
+This is why the PACF plot is important
+What this is telling is that beyond the lag 24 we don't really have any predictive power.
+
+we could either do a vertical split to get features and target variables. but in the case of time series data we do a horizontal split. 
+where everything above is the training data and everything below is the test data.
+
+With an AR model we no longer have a feature matrix like with linear regression.
+In an AR model we only have y (the target) and we associate it with a timestep (t), a moment in time
+Then we try to predict the value of y at a moment in time by looking at the value of y at a previous timestep (lag)
+Now, in the same way you don't need to limit yourself to one feature, you do not need to limit yourself to one lag
+you can have multiple lags. and whjen you train the model it will come up with estimates of beta coefficients that will be associated with these lags.
+The question now is how many lags do you then include in the model?
+that is the reason for the PACF plot. it lets you know the last lag that has any predictive significance.
+In this case that is, 24
+
+In linear models you need to check and see what the residuals are.
+residuals are the difference between the true value and the predicted value
+Then we look at the distribution of the residuals and make sure that they are normally distributed.
+
+
+The acf plot of the residuals reveals that  there is basically no way to predict a residual at a given timestep if you look at a residual from a previous timestep or one before that or even one further back
+what that means is that there is no more signal left in our data 
+which m,ean that the model pulled all that predictive power out of the data during training
+this is a positive sign that the model is looking good.
+
+traditional test evaluation method doesn't work when you're working with a time series model
+when we split we create a vertical cutoff. everything to the left is the training data and everything to the left is the test data
+with walk forward validation:
+    you'll train your model with the training data
+    then you make a prediction for the following timestep
+    once that prediction is made, the first data point in the test set will be reassigned to the training set
+    then you retrain the model with this new expanded training set
+    this proces repeats as you move forward and continue to make predictions
+
+
+What i learned:
+    Traditional model valuation doesn't work well with times series data
+    Learnt how to query MongoDB database, a Nosql database
+    learnt how to clean and explore time series data 
+    learnt about autocorrelation function plots
+    learnt about pacf plots
+    learnt about AR models
